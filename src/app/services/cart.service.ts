@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { CartItem } from '../common/cart-item';
-import { Subject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -9,19 +9,28 @@ export class CartService {
 
   cartItems: CartItem[] = [];
 
-  totalPrice: Subject<number> = new Subject<number>();
-  totalQuantity: Subject<number> = new Subject<number>();
+  totalPrice: Subject<number> = new BehaviorSubject<number>(0);
+  totalQuantity: Subject<number> = new BehaviorSubject<number>(0);
 
-  constructor() { }
+  //storage: Storage = sessionStorage;
+  storage: Storage = localStorage;
+
+  constructor() {
+    //   read data from storage
+    let data = JSON.parse(this.storage.getItem('cartItems')!);
+    if (data != null) {
+      this.cartItems = data;
+
+      this.computeCartTotals();
+    }
+   }
 
   addToCart(theCartItem: CartItem){
     let alreadyExistsICart: boolean = false;
     let existingCartItem: CartItem = undefined!;
 
     if(this.cartItems.length > 0) {
-      
       existingCartItem = this.cartItems.find(tempCartItem => tempCartItem.id === theCartItem.id)!;
-
       alreadyExistsICart = (existingCartItem != undefined);
     }
 
@@ -40,16 +49,16 @@ export class CartService {
     cartItem.quantity--;
 
     if (cartItem.quantity === 0) {
-      this.remove(cartItem)
-    } else {
-      this.computeCartTotals();
+      this.remove(cartItem);
+      return;
     }
+
+    this.computeCartTotals();
   }
 
   remove(cartItem: CartItem) {
     //get the index of the item in the array
     const itemIndex = this.cartItems.findIndex(tempCartItem => tempCartItem.id === cartItem.id);
-
 
     //if found, remove the item from array
     if (itemIndex > -1) {
@@ -73,6 +82,13 @@ export class CartService {
     this.totalQuantity.next(totalQuantityValue);
 
     this.logCartData(totalPriceValue, totalQuantityValue);
+    
+    this.persistCartItems();
+  }
+
+
+  persistCartItems() {
+    this.storage.setItem('cartItems', JSON.stringify(this.cartItems));
   }
 
   logCartData(totalPriceValue: number, totalQuantityValue: number) {
